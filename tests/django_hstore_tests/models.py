@@ -92,6 +92,46 @@ class UniqueTogetherDataBag(HStoreModel):
         unique_together = ('name', 'data')
 
 if get_version()[0:3] >= '1.6':
+    class CustomType(object):
+        """Custom type, for use as an example for (de)serialization."""
+        def __init__(self, value):
+            self.value = value
+
+        def __eq__(self, other):
+            return isinstance(other, CustomType) and \
+                self.value == other.value
+
+        @classmethod
+        def deserialize(cls, raw):
+            if raw:
+                assert raw.startswith('[')
+                assert raw.endswith(']')
+                return cls(raw[1:-1])
+
+        def serialize(self):
+            return '[' + self.value + ']'
+
+
+    class CustomField(models.Field):
+        def db_type(self, connection):
+            return 'text'
+
+        def from_db_value(self, value, expression, connection, context):
+            """DB value -> Python type"""
+            return CustomType.deserialize(value)
+
+        def get_prep_value(self, value):
+            """Python type -> DB value"""
+            return value.serialize()
+
+        def to_python(self, value):
+            """text or Python type -> Python type"""
+            if isinstance(value, CustomType):
+                return value
+
+            return CustomType.deserialize(value)
+
+
     class SchemaDataBag(HStoreModel):
         name = models.CharField(max_length=32)
         data = hstore.DictionaryField(schema=[
@@ -200,6 +240,14 @@ if get_version()[0:3] >= '1.6':
                     'blank': True
                 }
             },
+            {
+                'name': 'custom',
+                'class': CustomField,
+                'kwargs': {
+                    'blank': True,
+                    'null': True
+                }
+            },
         ])
 
     class NullSchemaDataBag(HStoreModel):
@@ -223,7 +271,7 @@ if get_version()[0:3] >= '1.6':
 
     __all__.append('SchemaDataBag')
     __all__.append('NullSchemaDataBag')
-
+            
 
 # if geodjango is in use define Location model, which contains GIS data
 if GEODJANGO_INSTALLED:

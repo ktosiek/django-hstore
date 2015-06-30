@@ -19,7 +19,8 @@ from django.test import TestCase
 from django_hstore import hstore
 from django_hstore.virtual import create_hstore_virtual_field
 
-from django_hstore_tests.models import SchemaDataBag, NullSchemaDataBag
+from django_hstore_tests.models import (CustomType, SchemaDataBag,
+                                        NullSchemaDataBag)
 
 
 MIGRATION_PATH = '{0}/../{1}'.format(os.path.dirname(__file__), 'migrations')
@@ -64,6 +65,17 @@ class TestSchemaMode(TestCase):
         self.assertEqual(d.get('number'), 2)
         self.assertEqual(d.get('default_test', 'default'), 'default')
         self.assertIsNone(d.get('default_test'))
+
+    def test_save_and_reload_custom_type(self):
+        d = SchemaDataBag()
+        v = CustomType('some value')
+        d.custom = v
+        self.assertEqual(d.custom, v)
+
+    def test_serializing_custom_type(self):
+        d = SchemaDataBag()
+        d.custom = CustomType('some value')
+        self.assertEqual(dict.get(d.data, 'custom'), '[some value]')
 
     def test_virtual_field_default_value(self):
         d = SchemaDataBag()
